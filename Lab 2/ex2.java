@@ -7,9 +7,20 @@ public class ex2 {
         int[] array1 = readarray(scanner);
         int[] array2 = readarray(scanner);
 
+        System.out.print("Array1: ");
+        printArray(array1);
+
+        System.out.print("Array2: ");
+        printArray(array2);
 
         sortArray(array1);
         sortArray(array2);
+
+        System.out.print("Array1 sortat: ");
+        printArray(array1);
+
+        System.out.print("Array2 sortat: ");
+        printArray(array2);
 
         int[] mergedArray = mergeSortedArrays(array1, array2);
 
