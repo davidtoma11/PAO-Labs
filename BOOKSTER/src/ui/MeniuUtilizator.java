@@ -56,7 +56,8 @@ public class MeniuUtilizator {
             System.out.println("1. Vezi comenzile mele active");
             System.out.println("2. Vezi istoric comenzi");
             System.out.println("3. Plaseaza comanda");
-            System.out.println("4. Anulează comandă");
+            System.out.println("4. Anuleaza comanda");
+            System.out.println("5. Returneaza comanda");
             System.out.println("0. Inapoi");
             System.out.print("Alege o optiune: ");
 
@@ -72,6 +73,7 @@ public class MeniuUtilizator {
                 case 2 -> afiseazaIstoricComenzi();
                 case 3 -> plaseazaComanda();
                 case 4 -> anuleazaComanda();
+                case 5 -> returneazaComanda();
                 case 0 -> System.out.println("Revenire la meniul principal...");
                 default -> System.out.println("Optiune invalida. Incearca din nou.");
             }
@@ -264,6 +266,60 @@ public class MeniuUtilizator {
 
         } catch (SQLException e) {
             System.out.println("Eroare la anulare comandă: " + e.getMessage());
+        }
+    }
+
+    private void returneazaComanda() {
+        afiseazaComenziActive();
+        System.out.print("\nIntrodu ID-ul comenzii de returnat: ");
+        int comandaId = scanner.nextInt();
+        scanner.nextLine();
+
+        System.out.print("Ești sigur că vrei să returnezi această comandă? (da/nu): ");
+        if (!scanner.nextLine().equalsIgnoreCase("da")) {
+            System.out.println("Returnare abandonată.");
+            return;
+        }
+
+        try (Connection conn = this.dataService.getConnection()) {
+            // Verificăm dacă comanda aparține utilizatorului curent și este activă
+            String sqlVerifica = "SELECT 1 FROM COMANDA WHERE id = ? AND utilizator_id = ? AND status = 'ACTIVA'";
+            PreparedStatement stmtVerifica = conn.prepareStatement(sqlVerifica);
+            stmtVerifica.setInt(1, comandaId);
+            stmtVerifica.setInt(2, this.utilizator.getId());
+            ResultSet rsVerifica = stmtVerifica.executeQuery();
+
+            if (!rsVerifica.next()) {
+                System.out.println("Comanda nu există, nu ți-e atribuită sau nu este activă!");
+                return;
+            }
+
+            // Obținem cărțile din comandă pentru a le marca ca disponibile
+            String sqlCarti = "SELECT carte_id FROM COMANDA_CARTE WHERE comanda_id = ?";
+            PreparedStatement stmtCarti = conn.prepareStatement(sqlCarti);
+            stmtCarti.setInt(1, comandaId);
+            ResultSet rsCarti = stmtCarti.executeQuery();
+
+            while (rsCarti.next()) {
+                String sqlUpdateCarte = "UPDATE CARTE SET disponibil = TRUE WHERE id = ?";
+                PreparedStatement stmtUpdateCarte = conn.prepareStatement(sqlUpdateCarte);
+                stmtUpdateCarte.setInt(1, rsCarti.getInt("carte_id"));
+                stmtUpdateCarte.executeUpdate();
+            }
+
+            // Actualizăm statusul comenzii la 'FINALIZATA' și setăm data returnării
+            String sqlUpdate = "UPDATE COMANDA SET status = 'FINALIZATA', data_returnarii = ? WHERE id = ?";
+            PreparedStatement stmtUpdate = conn.prepareStatement(sqlUpdate);
+            stmtUpdate.setString(1, LocalDate.now().toString());
+            stmtUpdate.setInt(2, comandaId);
+            stmtUpdate.executeUpdate();
+
+            System.out.println("Comanda #" + comandaId + " a fost returnată cu succes și marcată ca finalizată!");
+            AuditService.logAction("UTILIZATOR " + this.utilizator.getId() + " - a returnat comanda #" + comandaId);
+
+        } catch (SQLException e) {
+            System.out.println("Eroare la returnare comandă: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
